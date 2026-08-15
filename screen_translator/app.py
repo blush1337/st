@@ -42,6 +42,8 @@ class PipelineWorker(QRunnable):
         operation_id: str,
     ) -> None:
         super().__init__()
+        # The GUI owns the worker until its queued completion signal is handled.
+        self.setAutoDelete(False)
         self.pipeline = pipeline
         self.selection = selection
         self.settings = settings
@@ -80,6 +82,7 @@ class ScreenTranslatorApplication(QObject):
         )
         self.thread_pool = QThreadPool(self)
         self.thread_pool.setMaxThreadCount(1)
+        self.active_workers: dict[str, PipelineWorker] = {}
         self.busy = False
         self.paused = not self.settings.hotkey.enabled
 
@@ -226,11 +229,16 @@ class ScreenTranslatorApplication(QObject):
             self.pipeline, selection, self.settings, operation_id
         )
         worker.signals.finished.connect(
-            lambda result, area=region: self._pipeline_finished(result, area)
+            lambda result, area=region, op=operation_id: self._pipeline_finished(
+                op, result, area
+            )
         )
         worker.signals.failed.connect(
-            lambda message, area=region: self._pipeline_failed(message, area)
+            lambda message, area=region, op=operation_id: self._pipeline_failed(
+                op, message, area
+            )
         )
+        self.active_workers[operation_id] = worker
         self.thread_pool.start(worker)
         log_event(
             log,
@@ -253,12 +261,17 @@ class ScreenTranslatorApplication(QObject):
                 level=logging.DEBUG,
             )
 
-    def _pipeline_finished(self, result: PipelineResult, region: QRect) -> None:
+    def _pipeline_finished(
+        self, operation_id: str, result: PipelineResult, region: QRect
+    ) -> None:
+        # Keep the signal owner alive until this queued GUI callback returns.
+        completed_worker = self.active_workers.pop(operation_id, None)
         self._clear_processing()
         log_event(
             log,
             "overlay",
             "result_showing",
+            operation_id=operation_id,
             ocr_items=len(result.items),
             original_characters=len(result.original_text),
             translated_characters=len(result.translated_text),
@@ -272,17 +285,24 @@ class ScreenTranslatorApplication(QObject):
             log,
             "overlay",
             "result_shown",
+            operation_id=operation_id,
             panel_width=self.result_overlay.width(),
             panel_height=self.result_overlay.height(),
         )
+        del completed_worker
 
-    def _pipeline_failed(self, message: str, region: QRect) -> None:
+    def _pipeline_failed(
+        self, operation_id: str, message: str, region: QRect
+    ) -> None:
+        # Keep the signal owner alive until this queued GUI callback returns.
+        completed_worker = self.active_workers.pop(operation_id, None)
         self._clear_processing()
         log_event(
             log,
             "overlay",
             "error_showing",
             level=logging.ERROR,
+            operation_id=operation_id,
             message=message,
         )
         result = PipelineResult("", f"Couldn’t translate this area.\n{message}", ())
@@ -290,6 +310,7 @@ class ScreenTranslatorApplication(QObject):
         self.result_overlay = TranslationOverlay(result, region, error_settings)
         self.result_overlay.closed.connect(self._overlay_closed)
         self.result_overlay.show()
+        del completed_worker
 
     def _overlay_closed(self) -> None:
         log_event(log, "overlay", "closed")
@@ -375,6 +396,7 @@ class ScreenTranslatorApplication(QObject):
         self.hotkey.stop()
         self.thread_pool.clear()
         self.thread_pool.waitForDone(20_000)
+        self.active_workers.clear()
         if self.processing_popup is not None:
             self.processing_popup.close()
         if self.result_overlay is not None:
