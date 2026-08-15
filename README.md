@@ -36,6 +36,25 @@ Settings are stored at:
 
 Logs are stored beside the settings in `screen-translator.log`. LibreTranslate credentials are never included in logs. The API key is stored in the per-user settings file, so protect that Windows account and file as you would any locally stored application credential.
 
+### Diagnostic mode
+
+Normal logging records every major stage and its duration. For physical capture coordinates, OCR filtering counts, full diagnostic tracebacks, and console output, start the application from PowerShell with:
+
+```powershell
+python main.py --debug
+```
+
+Entries use a searchable form such as:
+
+```text
+stage=capture event=started operation_id="8c31e62a" logical_width=420 logical_height=180
+stage=capture event=completed operation_id="8c31e62a" duration_ms=18.7
+stage=ocr event=results_ready operation_id="8c31e62a" accepted_items=3
+stage=translation event=completed operation_id="8c31e62a" duration_ms=241.3
+```
+
+The same `operation_id` connects capture, OCR, and translation records for one selection. Logs contain dimensions, providers, language codes, counts, timings, and error types. They deliberately omit captured pixels, recognized text, translated text, and API-key values.
+
 ## Everyday use
 
 1. Open **Settings → Translation** and choose the target language.

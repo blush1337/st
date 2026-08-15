@@ -8,6 +8,7 @@ import numpy as np
 from PIL import Image, ImageOps
 
 from .config import OCRSettings
+from .diagnostics import log_event
 from .models import BoundingBox, OCRResult
 
 log = logging.getLogger(__name__)
@@ -48,8 +49,19 @@ class RapidOCREngine:
 
     def recognize(self, image: Image.Image, settings: OCRSettings) -> list[OCRResult]:
         try:
-            raw, _elapsed = self._get_engine()(np.asarray(self._prepare(image, settings.preprocess)))
+            prepared = self._prepare(image, settings.preprocess)
+            log_event(
+                log,
+                "ocr",
+                "input_prepared",
+                level=logging.DEBUG,
+                width=prepared.width,
+                height=prepared.height,
+                preprocessing=settings.preprocess,
+            )
+            raw, elapsed = self._get_engine()(np.asarray(prepared))
             if not raw:
+                log_event(log, "ocr", "engine_returned_empty", engine_elapsed=elapsed)
                 return []
             results: list[OCRResult] = []
             for line in raw:
@@ -67,10 +79,19 @@ class RapidOCREngine:
                         bounding_box=points,  # type: ignore[arg-type]
                     )
                 )
+            log_event(
+                log,
+                "ocr",
+                "engine_results_filtered",
+                level=logging.DEBUG,
+                raw_items=len(raw),
+                accepted_items=len(results),
+                rejected_items=len(raw) - len(results),
+                engine_elapsed=elapsed,
+            )
             return results
         except OCRError:
             raise
         except Exception as exc:
             log.exception("OCR failed")
             raise OCRError("Text recognition failed for this capture.") from exc
-

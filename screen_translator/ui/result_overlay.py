@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import math
 
-from PySide6.QtCore import QRect, Qt, QTimer
-from PySide6.QtGui import QFont, QFontMetrics, QKeyEvent
+from PySide6.QtCore import QRect, Qt, QTimer, Signal
+from PySide6.QtGui import QCloseEvent, QFont, QFontMetrics, QKeyEvent
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -21,6 +21,8 @@ from .geometry import position_near
 
 
 class TranslationOverlay(QFrame):
+    closed = Signal()
+
     def __init__(
         self, result: PipelineResult, selection: QRect, settings: OverlaySettings
     ) -> None:
@@ -102,6 +104,10 @@ class TranslationOverlay(QFrame):
 
     def copy_text(self) -> None:
         QApplication.clipboard().setText(self.text.toPlainText())
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        self.closed.emit()
+        super().closeEvent(event)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key.Key_Escape:

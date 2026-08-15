@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 from .paths import settings_path
+from .diagnostics import log_event
 
 log = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -86,7 +87,7 @@ class SettingsStore:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
             if not isinstance(raw, dict):
                 raise ValueError("settings root is not an object")
-            return AppSettings(
+            settings = AppSettings(
                 general=_merge_dataclass(GeneralSettings, raw.get("general")),
                 hotkey=_merge_dataclass(HotkeySettings, raw.get("hotkey")),
                 translation=_merge_dataclass(
@@ -95,7 +96,10 @@ class SettingsStore:
                 ocr=_merge_dataclass(OCRSettings, raw.get("ocr")),
                 overlay=_merge_dataclass(OverlaySettings, raw.get("overlay")),
             )
+            log_event(log, "settings", "loaded", path=str(self.path))
+            return settings
         except FileNotFoundError:
+            log_event(log, "settings", "defaults_used", reason="file_not_found")
             return AppSettings()
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             log.exception("Could not read settings; defaults will be used")
@@ -109,4 +113,4 @@ class SettingsStore:
             json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
         )
         os.replace(temporary, self.path)
-
+        log_event(log, "settings", "file_written", path=str(self.path))

@@ -6,6 +6,8 @@ from dataclasses import dataclass
 import mss
 from PIL import Image
 
+from .diagnostics import log_event
+
 log = logging.getLogger(__name__)
 
 
@@ -46,6 +48,21 @@ class ScreenCapture:
                 height = min(height, bottom_limit - top)
                 if width < 2 or height < 2:
                     raise CaptureError("The selected area is too small to capture.")
+                log_event(
+                    log,
+                    "capture",
+                    "physical_region_resolved",
+                    level=logging.DEBUG,
+                    monitor_index=monitor_index,
+                    monitor_left=monitor["left"],
+                    monitor_top=monitor["top"],
+                    monitor_width=monitor["width"],
+                    monitor_height=monitor["height"],
+                    capture_left=left,
+                    capture_top=top,
+                    capture_width=width,
+                    capture_height=height,
+                )
                 shot = source.grab(
                     {"left": left, "top": top, "width": width, "height": height}
                 )
