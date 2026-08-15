@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QEvent, QTimer, Qt, Signal
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtGui import QCloseEvent, QShowEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -34,6 +34,8 @@ from ..config import (
 )
 from ..hotkeys import hotkey_is_available
 from .hotkey_edit import HotkeyEdit
+from .motion import animate_page_in, animate_window_in, animate_window_out
+from .theme import material_theme, settings_stylesheet
 
 
 LANGUAGES = [
@@ -78,45 +80,29 @@ class SettingsWindow(QDialog):
     def __init__(self, settings: AppSettings) -> None:
         super().__init__()
         self._settings = settings
+        self._hiding_to_tray = False
+        self._hide_origin = None
         self.setWindowTitle("Screen Region Translator settings")
+        self.setObjectName("settingsWindow")
         self.setMinimumSize(720, 590)
         self.resize(760, 640)
-        self.setStyleSheet(
-            """
-            QDialog { background: palette(window); color: palette(window-text); }
-            QListWidget { background: palette(base); color: palette(text); border: 0; padding: 8px; outline: 0; }
-            QListWidget::item { padding: 8px 10px; margin: 1px 0; border-radius: 3px; }
-            QListWidget::item:selected { background: palette(highlight); color: palette(highlighted-text); }
-            QLabel, QCheckBox, QGroupBox { color: palette(window-text); }
-            QGroupBox { font-weight: 600; margin-top: 14px; padding-top: 10px; }
-            QGroupBox::title { subcontrol-origin: margin; left: 0; padding: 0; }
-            QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QFontComboBox {
-                min-height: 25px; background: palette(base); color: palette(text);
-                border: 1px solid palette(mid);
-                border-radius: 2px; padding: 1px 5px;
-            }
-            QPushButton {
-                min-height: 26px; padding: 1px 12px;
-                background: palette(button); color: palette(button-text);
-            }
-            QLabel#description { color: palette(window-text); font-size: 8.5pt; }
-            """
-        )
+        self.setStyleSheet(settings_stylesheet(material_theme()))
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(18, 16, 18, 14)
-        root.setSpacing(12)
+        root.setContentsMargins(22, 19, 22, 17)
+        root.setSpacing(14)
         title = QLabel("Screen Region Translator")
-        title.setStyleSheet("font-size: 20px; font-weight: 600;")
+        title.setObjectName("windowTitle")
         subtitle = QLabel("Capture a screen area, recognize its text, and show a translation.")
         subtitle.setObjectName("description")
         root.addWidget(title)
         root.addWidget(subtitle)
 
         body = QHBoxLayout()
-        body.setSpacing(18)
+        body.setSpacing(16)
         self.navigation = QListWidget()
-        self.navigation.setFixedWidth(155)
+        self.navigation.setObjectName("navigation")
+        self.navigation.setFixedWidth(166)
         self.navigation.addItems(["General", "Translation", "Text recognition", "Overlay"])
         self.pages = QStackedWidget()
         body.addWidget(self.navigation)
@@ -127,7 +113,7 @@ class SettingsWindow(QDialog):
         self.pages.addWidget(_scroll_page(self._translation_page()))
         self.pages.addWidget(_scroll_page(self._ocr_page()))
         self.pages.addWidget(_scroll_page(self._overlay_page()))
-        self.navigation.currentRowChanged.connect(self.pages.setCurrentIndex)
+        self.navigation.currentRowChanged.connect(self._switch_page)
         self.navigation.setCurrentRow(0)
 
         buttons = QDialogButtonBox(
@@ -135,23 +121,33 @@ class SettingsWindow(QDialog):
         )
         buttons.accepted.connect(self._save)
         buttons.rejected.connect(self.reject)
+        save_button = buttons.button(QDialogButtonBox.StandardButton.Save)
+        if save_button is not None:
+            save_button.setObjectName("primaryButton")
         root.addWidget(buttons)
         self.load(settings)
 
     @staticmethod
     def _page_layout(title: str, description: str) -> tuple[QWidget, QVBoxLayout]:
         page = QWidget()
+        page.setObjectName("settingsPage")
         layout = QVBoxLayout(page)
         layout.setContentsMargins(2, 2, 10, 12)
         layout.setSpacing(6)
         heading = QLabel(title)
-        heading.setStyleSheet("font-size: 17px; font-weight: 600;")
+        heading.setObjectName("pageTitle")
         detail = QLabel(description)
         detail.setObjectName("description")
         detail.setWordWrap(True)
         layout.addWidget(heading)
         layout.addWidget(detail)
         return page, layout
+
+    def _switch_page(self, index: int) -> None:
+        self.pages.setCurrentIndex(index)
+        current = self.pages.currentWidget()
+        if current is not None:
+            animate_page_in(current)
 
     def _general_page(self) -> QWidget:
         page, layout = self._page_layout(
@@ -410,13 +406,26 @@ class SettingsWindow(QDialog):
         self._hide_to_tray()
 
     def _hide_to_tray(self) -> None:
-        was_visible = self.isVisible()
+        if not self.isVisible() or self._hiding_to_tray:
+            return
         self.setWindowState(
             self.windowState() & ~Qt.WindowState.WindowMinimized
         )
+        self._hiding_to_tray = True
+        self._hide_origin = self.pos()
+        animate_window_out(self, self._finish_hide_to_tray, offset_y=5)
+
+    def _finish_hide_to_tray(self) -> None:
         self.hide()
-        if was_visible:
-            self.hiddenToTray.emit()
+        if self._hide_origin is not None:
+            self.move(self._hide_origin)
+        self.setWindowOpacity(1.0)
+        self._hiding_to_tray = False
+        self.hiddenToTray.emit()
+
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        QTimer.singleShot(0, lambda: animate_window_in(self, offset_y=5))
 
     def closeEvent(self, event: QCloseEvent) -> None:
         event.ignore()

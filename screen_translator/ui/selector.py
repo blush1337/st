@@ -5,6 +5,8 @@ from PySide6.QtGui import QColor, QGuiApplication, QKeyEvent, QMouseEvent, QPain
 from PySide6.QtWidgets import QApplication, QWidget
 
 from ..capture import Selection
+from .motion import animate_opacity_in
+from .theme import material_theme
 
 
 class SelectionWindow(QWidget):
@@ -17,6 +19,7 @@ class SelectionWindow(QWidget):
         self.screen = QGuiApplication.screens()[screen_index]
         self.origin: QPoint | None = None
         self.current: QPoint | None = None
+        self.theme = material_theme()
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
@@ -30,6 +33,7 @@ class SelectionWindow(QWidget):
         self.setGeometry(self.screen.geometry())
         self.show()
         self.raise_()
+        animate_opacity_in(self, duration_ms=150)
 
     def selection_rect(self) -> QRect:
         if self.origin is None or self.current is None:
@@ -38,25 +42,43 @@ class SelectionWindow(QWidget):
 
     def paintEvent(self, _event: object) -> None:
         painter = QPainter(self)
-        painter.fillRect(self.rect(), QColor(0, 0, 0, 92))
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 105))
         selected = self.selection_rect()
         if selected.isValid() and not selected.isEmpty():
             painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Clear)
             painter.fillRect(selected, Qt.GlobalColor.transparent)
             painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
-            painter.setPen(QPen(QColor(0, 120, 212), 2))
+            painter.setPen(QPen(QColor(self.theme.accent), 2))
             painter.drawRect(selected.adjusted(0, 0, -1, -1))
             label = f"{selected.width()} × {selected.height()}"
-            label_rect = QRect(selected.left(), max(4, selected.top() - 27), 130, 23)
-            painter.fillRect(label_rect, QColor(32, 32, 32, 230))
-            painter.setPen(Qt.GlobalColor.white)
-            painter.drawText(label_rect.adjusted(7, 0, -4, 0), Qt.AlignmentFlag.AlignVCenter, label)
-        elif self.screen_index == 0:
-            painter.setPen(Qt.GlobalColor.white)
+            label_width = painter.fontMetrics().horizontalAdvance(label) + 22
+            label_rect = QRect(
+                selected.left(), max(8, selected.top() - 34), label_width, 28
+            )
+            painter.setPen(QPen(QColor(self.theme.outline), 1))
+            painter.setBrush(QColor(self.theme.surface))
+            painter.drawRoundedRect(label_rect, 8, 8)
+            painter.setPen(QColor(self.theme.text))
             painter.drawText(
-                self.rect().adjusted(0, 28, 0, 0),
-                Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
-                "Drag to select text  •  Esc to cancel",
+                label_rect.adjusted(10, 0, -8, 0),
+                Qt.AlignmentFlag.AlignVCenter,
+                label,
+            )
+        elif self.screen_index == 0:
+            message = "Drag to select text  •  Esc to cancel"
+            panel_width = painter.fontMetrics().horizontalAdvance(message) + 28
+            panel_rect = QRect(
+                (self.width() - panel_width) // 2, 24, panel_width, 36
+            )
+            painter.setPen(QPen(QColor(self.theme.outline), 1))
+            painter.setBrush(QColor(self.theme.surface))
+            painter.drawRoundedRect(panel_rect, 9, 9)
+            painter.setPen(QColor(self.theme.text))
+            painter.drawText(
+                panel_rect,
+                Qt.AlignmentFlag.AlignCenter,
+                message,
             )
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
@@ -137,4 +159,3 @@ class SelectionController:
     def _cancelled(self) -> None:
         self.close()
         self.on_cancelled()
-

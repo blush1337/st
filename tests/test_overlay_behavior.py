@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import QEvent, QRect, Qt
 from PySide6.QtGui import QKeyEvent
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QPushButton
 
 from screen_translator.config import OverlaySettings
@@ -41,7 +42,7 @@ def test_escape_closes_overlay(qapp) -> None:
         overlay,
         QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier),
     )
-    qapp.processEvents()
+    QTest.qWait(180)
 
     assert not overlay.isVisible()
 
@@ -57,6 +58,6 @@ def test_close_button_closes_overlay(qapp) -> None:
     )
 
     close_button.click()
-    qapp.processEvents()
+    QTest.qWait(180)
 
     assert not overlay.isVisible()

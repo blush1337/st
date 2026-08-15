@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import uuid
 
-from PySide6.QtCore import QObject, QRect, QRunnable, QThreadPool, Signal, Slot
+from PySide6.QtCore import QObject, QRect, QRunnable, QThreadPool, QTimer, Signal, Slot
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from .capture import CaptureError, ScreenCapture, Selection
@@ -180,8 +180,7 @@ class ScreenTranslatorApplication(QObject):
             log_event(log, "selection", "ignored", reason="pipeline_busy")
             return
         if self.result_overlay is not None:
-            self.result_overlay.close()
-            self.result_overlay = None
+            self.result_overlay.request_close()
         self.selection.start()
         log_event(
             log,
@@ -314,7 +313,18 @@ class ScreenTranslatorApplication(QObject):
 
     def _overlay_closed(self) -> None:
         log_event(log, "overlay", "closed")
-        self.result_overlay = None
+        closed_overlay = self.result_overlay
+        if closed_overlay is not None:
+            # closeEvent must return before the last Python reference is released.
+            QTimer.singleShot(
+                0, lambda overlay=closed_overlay: self._release_overlay(overlay)
+            )
+
+    def _release_overlay(self, overlay: TranslationOverlay) -> None:
+        if self.result_overlay is overlay:
+            overlay.deleteLater()
+            self.result_overlay = None
+            log_event(log, "overlay", "released", level=logging.DEBUG)
 
     @Slot()
     def show_settings(self) -> None:

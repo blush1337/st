@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from screen_translator.config import AppSettings
 from screen_translator.ui.settings_window import SettingsWindow
+from PySide6.QtTest import QTest
 
 
 def test_settings_window_round_trip(qapp) -> None:
@@ -26,7 +27,7 @@ def test_close_and_cancel_hide_settings_to_tray(qapp) -> None:
     qapp.processEvents()
 
     window.close()
-    qapp.processEvents()
+    QTest.qWait(190)
 
     assert not window.isVisible()
     assert hidden_events == [True]
@@ -34,7 +35,7 @@ def test_close_and_cancel_hide_settings_to_tray(qapp) -> None:
     window.show()
     qapp.processEvents()
     window.reject()
-    qapp.processEvents()
+    QTest.qWait(190)
 
     assert not window.isVisible()
     assert hidden_events == [True, True]

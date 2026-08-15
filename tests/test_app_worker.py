@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QEventLoop, QTimer
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QPushButton
 
 from screen_translator.app import ScreenTranslatorApplication
 from screen_translator.capture import Selection
@@ -37,7 +39,16 @@ def test_worker_completion_reaches_gui_and_replaces_processing_popup(
     assert controller.active_workers == {}
 
     poll.stop()
-    controller.result_overlay.close()
+    close_button = next(
+        button
+        for button in controller.result_overlay.findChildren(QPushButton)
+        if button.text() == "Close"
+    )
+    close_button.click()
+    QTest.qWait(200)
+
+    assert controller.result_overlay is None
+    assert qapp.closingDown() is False
+
     controller.thread_pool.waitForDone()
     controller.tray.hide()
-

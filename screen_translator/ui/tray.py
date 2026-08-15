@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QApplication, QMenu, QStyle, QSystemTrayIcon
 
 from ..hotkeys import display_hotkey
+from .theme import material_theme, menu_stylesheet
 
 
 class TrayController(QObject):
@@ -21,6 +22,9 @@ class TrayController(QObject):
         self.tray = QSystemTrayIcon(self.active_icon)
         self.tray.setToolTip(f"Screen Region Translator — {display_hotkey(hotkey)}")
         menu = QMenu()
+        menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        menu.setStyleSheet(menu_stylesheet(material_theme()))
+        self.menu = menu
         self.capture_action = QAction("Translate Region")
         self.capture_action.triggered.connect(self.captureRequested)
         self.settings_action = QAction("Settings")

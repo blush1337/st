@@ -12,6 +12,7 @@ The current MVP includes:
 - selectable translated text, copy/close controls, `Esc` dismissal, and automatic placement;
 - startup, tray, OCR, translation, and overlay settings stored per Windows user;
 - a pausable notification-area icon and clean worker-thread shutdown;
+- Material-inspired light/dark surfaces with restrained rounded corners and short UI transitions;
 - rotating diagnostic logs with no API-key logging.
 
 ## Run from source
