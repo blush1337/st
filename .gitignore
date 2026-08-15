@@ -13,3 +13,5 @@ build/
 .idea/
 .vscode/
 settings.json
+output/
+*.exe
