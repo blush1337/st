@@ -9,7 +9,7 @@ The current MVP includes:
 - per-monitor DPI conversion and in-memory MSS capture;
 - local RapidOCR recognition with confidence scores and four-point bounding boxes;
 - Google Web, LibreTranslate, and no-translation test providers behind one interface;
-- selectable translated text, copy/close controls, `Esc`, outside-click dismissal, and automatic placement;
+- selectable translated text, copy/close controls, `Esc` dismissal, and automatic placement;
 - startup, tray, OCR, translation, and overlay settings stored per Windows user;
 - a pausable notification-area icon and clean worker-thread shutdown;
 - rotating diagnostic logs with no API-key logging.
@@ -61,9 +61,9 @@ The same `operation_id` connects capture, OCR, and translation records for one s
 2. Minimize or close Settings; the utility remains in the notification area.
 3. Press `Ctrl + Shift + T` in any application.
 4. Drag over text on one monitor and release.
-5. Select or copy the translated text. Press `Esc` or click elsewhere to dismiss it.
+5. Select or copy the translated text. It remains visible until you press `Esc` or choose **Close**.
 
-Tiny selections are ignored. Press `Esc` before releasing the mouse to cancel. The tray menu also provides **Translate Region**, **Settings**, **Pause Hotkey**, and **Exit**.
+Tiny selections are ignored. Press `Esc` before releasing the mouse to cancel. The tray menu also provides **Translate Region**, **Settings**, **Pause Hotkey**, and **Close Program**.
 
 ## Translation providers
 

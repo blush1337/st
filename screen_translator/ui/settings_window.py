@@ -73,7 +73,7 @@ def _scroll_page(content: QWidget) -> QScrollArea:
 
 class SettingsWindow(QDialog):
     saved = Signal(object)
-    exitRequested = Signal()
+    hiddenToTray = Signal()
 
     def __init__(self, settings: AppSettings) -> None:
         super().__init__()
@@ -167,12 +167,6 @@ class SettingsWindow(QDialog):
         behavior_layout.addWidget(self.start_minimized)
         behavior_layout.addWidget(self.minimize_tray)
         behavior_layout.addWidget(self.notifications)
-        close_row = QFormLayout()
-        self.close_behavior = QComboBox()
-        self.close_behavior.addItem("Minimize to notification area", "tray")
-        self.close_behavior.addItem("Exit application", "exit")
-        close_row.addRow("Closing Settings:", self.close_behavior)
-        behavior_layout.addLayout(close_row)
         layout.addWidget(behavior)
 
         hotkey_group = QGroupBox("Capture shortcut")
@@ -298,15 +292,12 @@ class SettingsWindow(QDialog):
         self.position.addItem("Below selection", "below")
         self.position.addItem("Above selection", "above")
         self.show_original = QCheckBox("Show recognized text above the translation")
-        self.auto_dismiss = QCheckBox("Dismiss the overlay automatically")
-        self.dismiss_seconds = QSpinBox()
-        self.dismiss_seconds.setRange(2, 120)
-        self.dismiss_seconds.setSuffix(" seconds")
-        self.auto_dismiss.toggled.connect(self.dismiss_seconds.setEnabled)
         behavior_form.addRow("Position:", self.position)
         behavior_form.addRow("", self.show_original)
-        behavior_form.addRow("", self.auto_dismiss)
-        behavior_form.addRow("Dismiss after:", self.dismiss_seconds)
+        note = QLabel("The translation remains visible until you press Esc or choose Close.")
+        note.setObjectName("description")
+        note.setWordWrap(True)
+        behavior_form.addRow("", note)
         layout.addWidget(behavior)
         layout.addStretch()
         return page
@@ -323,7 +314,6 @@ class SettingsWindow(QDialog):
         self.start_minimized.setChecked(general.start_minimized)
         self.minimize_tray.setChecked(general.minimize_to_tray)
         self.notifications.setChecked(general.tray_notifications)
-        _set_combo_data(self.close_behavior, general.close_behavior)
         self.hotkey.setShortcut(settings.hotkey.shortcut)
 
         translation = settings.translation
@@ -350,9 +340,6 @@ class SettingsWindow(QDialog):
         self.padding.setValue(overlay.padding)
         _set_combo_data(self.position, overlay.position)
         self.show_original.setChecked(overlay.show_original)
-        self.auto_dismiss.setChecked(overlay.auto_dismiss)
-        self.dismiss_seconds.setValue(overlay.dismiss_seconds)
-        self.dismiss_seconds.setEnabled(overlay.auto_dismiss)
 
     def collect(self) -> AppSettings:
         return AppSettings(
@@ -361,7 +348,7 @@ class SettingsWindow(QDialog):
                 start_minimized=self.start_minimized.isChecked(),
                 minimize_to_tray=self.minimize_tray.isChecked(),
                 tray_notifications=self.notifications.isChecked(),
-                close_behavior=str(self.close_behavior.currentData()),
+                close_behavior="tray",
             ),
             hotkey=HotkeySettings(
                 shortcut=self.hotkey.shortcut(), enabled=self._settings.hotkey.enabled
@@ -390,8 +377,8 @@ class SettingsWindow(QDialog):
                 padding=self.padding.value(),
                 position=str(self.position.currentData()),
                 show_original=self.show_original.isChecked(),
-                auto_dismiss=self.auto_dismiss.isChecked(),
-                dismiss_seconds=self.dismiss_seconds.value(),
+                auto_dismiss=False,
+                dismiss_seconds=self._settings.overlay.dismiss_seconds,
             ),
         )
 
@@ -416,10 +403,21 @@ class SettingsWindow(QDialog):
             and self.isMinimized()
             and self._settings.general.minimize_to_tray
         ):
-            QTimer.singleShot(0, self.hide)
+            QTimer.singleShot(0, self._hide_to_tray)
         super().changeEvent(event)
 
+    def reject(self) -> None:
+        self._hide_to_tray()
+
+    def _hide_to_tray(self) -> None:
+        was_visible = self.isVisible()
+        self.setWindowState(
+            self.windowState() & ~Qt.WindowState.WindowMinimized
+        )
+        self.hide()
+        if was_visible:
+            self.hiddenToTray.emit()
+
     def closeEvent(self, event: QCloseEvent) -> None:
-        if self._settings.general.close_behavior == "exit":
-            self.exitRequested.emit()
-        super().closeEvent(event)
+        event.ignore()
+        self._hide_to_tray()

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 
-from PySide6.QtCore import QRect, Qt, QTimer, Signal
+from PySide6.QtCore import QRect, Qt, Signal
 from PySide6.QtGui import QCloseEvent, QFont, QFontMetrics, QKeyEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -28,7 +28,7 @@ class TranslationOverlay(QFrame):
     ) -> None:
         super().__init__(None)
         self.setWindowFlags(
-            Qt.WindowType.Popup
+            Qt.WindowType.Tool
             | Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
         )
@@ -99,9 +99,6 @@ class TranslationOverlay(QFrame):
                 preference=settings.position,
             )
         )
-        if settings.auto_dismiss:
-            QTimer.singleShot(settings.dismiss_seconds * 1000, self.close)
-
     def copy_text(self) -> None:
         QApplication.clipboard().setText(self.text.toPlainText())
 

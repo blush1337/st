@@ -322,13 +322,21 @@ class ScreenTranslatorApplication(QObject):
         if self.settings_window is None:
             self.settings_window = SettingsWindow(self.settings)
             self.settings_window.saved.connect(self.apply_settings)
-            self.settings_window.exitRequested.connect(self.shutdown)
+            self.settings_window.hiddenToTray.connect(self._settings_hidden_to_tray)
             self.settings_window.finished.connect(self._settings_closed)
         else:
             self.settings_window.load(self.settings)
         self.settings_window.show()
         self.settings_window.raise_()
         self.settings_window.activateWindow()
+
+    def _settings_hidden_to_tray(self) -> None:
+        log_event(log, "settings", "hidden_to_tray")
+        if self.settings.general.tray_notifications:
+            self.tray.message(
+                "Screen Region Translator",
+                "Settings closed. The translator is still running in the notification area.",
+            )
 
     def _settings_closed(self) -> None:
         log_event(log, "settings", "window_closed")

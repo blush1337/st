@@ -28,14 +28,14 @@ class TrayController(QObject):
         self.pause_action = QAction("Pause Hotkey")
         self.pause_action.setCheckable(True)
         self.pause_action.toggled.connect(self.pauseChanged)
-        exit_action = QAction("Exit")
-        exit_action.triggered.connect(self.exitRequested)
+        self.exit_action = QAction("Close Program")
+        self.exit_action.triggered.connect(self.exitRequested)
         menu.addAction(self.capture_action)
         menu.addAction(self.settings_action)
         menu.addSeparator()
         menu.addAction(self.pause_action)
         menu.addSeparator()
-        menu.addAction(exit_action)
+        menu.addAction(self.exit_action)
         self.tray.setContextMenu(menu)
         self.tray.activated.connect(self._activated)
 
@@ -66,4 +66,3 @@ class TrayController(QObject):
     def _activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
             self.settingsRequested.emit()
-
