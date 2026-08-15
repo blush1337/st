@@ -1,22 +1,22 @@
-# Переводчик выделенной области экрана
+# Screen Region Translator
 
-Утилита для области уведомлений Windows 10/11, которая распознаёт и переводит текст из выбранной области экрана. Нажмите глобальное сочетание клавиш, выделите текст мышью и скопируйте переведённый результат из компактного оверлея.
+A Windows 10/11 notification-area utility that recognizes and translates text from a selected screen region. Press the global shortcut, drag over text, and copy the translated result from a compact overlay.
 
-Текущий MVP включает:
+The current MVP includes:
 
-- настраиваемое глобальное сочетание клавиш (`Ctrl + Shift + T` по умолчанию);
-- выбор области на каждом подключённом мониторе, включая мониторы с отрицательными координатами рабочего стола;
-- преобразование с учётом DPI для каждого монитора и захват изображения в памяти через MSS;
-- локальное распознавание RapidOCR с оценками уверенности и четырёхточечными ограничивающими рамками;
-- провайдеры Google Web, LibreTranslate и режим без перевода, работающие через единый интерфейс;
-- выделяемый переведённый текст, элементы управления копированием и закрытием, закрытие по `Esc`, клику вне окна и автоматическое позиционирование;
-- настройки запуска, трея, OCR, перевода и оверлея, сохраняемые отдельно для каждого пользователя Windows;
-- значок в области уведомлений с возможностью приостановки и корректное завершение рабочих потоков;
-- ротацию диагностических логов без записи API-ключей.
+- a configurable global shortcut (`Ctrl + Shift + T` by default);
+- region selection on every connected monitor, including monitors with negative desktop coordinates;
+- per-monitor DPI conversion and in-memory MSS capture;
+- local RapidOCR recognition with confidence scores and four-point bounding boxes;
+- Google Web, LibreTranslate, and no-translation test providers behind one interface;
+- selectable translated text, copy/close controls, `Esc`, outside-click dismissal, and automatic placement;
+- startup, tray, OCR, translation, and overlay settings stored per Windows user;
+- a pausable notification-area icon and clean worker-thread shutdown;
+- rotating diagnostic logs with no API-key logging.
 
-## Запуск из исходников
+## Run from source
 
-Рекомендуется Python 3.11 или новее.
+Python 3.11 or newer is recommended.
 
 ```powershell
 python -m venv .venv
@@ -26,31 +26,31 @@ python -m pip install -e ".[dev]"
 python main.py
 ```
 
-Модель OCR инициализируется при первом захвате, поэтому он занимает больше времени, чем последующие. Распознавание и перевод выполняются вне GUI-потока Qt.
+The OCR model initializes on the first capture, so that capture takes longer than later ones. Recognition and translation run outside the Qt GUI thread.
 
-Настройки хранятся по адресу:
+Settings are stored at:
 
 ```text
 %LOCALAPPDATA%\Screen Region Translator\settings.json
 ```
 
-Логи хранятся рядом с настройками в файле `screen-translator.log`. Учётные данные LibreTranslate никогда не попадают в логи. API-ключ хранится в файле настроек конкретного пользователя, поэтому защищайте эту учётную запись Windows и файл так же, как любые другие локально сохранённые учётные данные приложения.
+Logs are stored beside the settings in `screen-translator.log`. LibreTranslate credentials are never included in logs. The API key is stored in the per-user settings file, so protect that Windows account and file as you would any locally stored application credential.
 
-## Повседневное использование
+## Everyday use
 
-1. Откройте **Settings → Translation** и выберите целевой язык.
-2. Сверните или закройте окно настроек — утилита продолжит работать в области уведомлений.
-3. Нажмите `Ctrl + Shift + T` в любом приложении.
-4. Выделите мышью текст на одном мониторе и отпустите кнопку.
-5. Выделите или скопируйте переведённый текст. Нажмите `Esc` или кликните в другом месте, чтобы закрыть окно.
+1. Open **Settings → Translation** and choose the target language.
+2. Minimize or close Settings; the utility remains in the notification area.
+3. Press `Ctrl + Shift + T` in any application.
+4. Drag over text on one monitor and release.
+5. Select or copy the translated text. Press `Esc` or click elsewhere to dismiss it.
 
-Слишком маленькие выделения игнорируются. Чтобы отменить операцию, нажмите `Esc` до отпускания кнопки мыши. Меню значка в трее также содержит пункты **Translate Region**, **Settings**, **Pause Hotkey** и **Exit**.
+Tiny selections are ignored. Press `Esc` before releasing the mouse to cancel. The tray menu also provides **Translate Region**, **Settings**, **Pause Hotkey**, and **Exit**.
 
-## Провайдеры перевода
+## Translation providers
 
-**Google Web** используется по умолчанию, поскольку не требует настройки, однако это неофициальный endpoint для личного использования без гарантированного уровня сервиса. **LibreTranslate** принимает URL сервера и необязательный API-ключ; это подходящий выбор для контролируемого развёртывания. **No translation** оставляет распознанный текст без изменений и полезен для тестирования OCR.
+**Google Web** is the default because it works without setup, but it is an unofficial personal-use endpoint and does not provide a service-level guarantee. **LibreTranslate** accepts a server URL and optional API key and is the appropriate choice for a controlled deployment. **No translation** keeps the recognized text unchanged and is useful when testing OCR.
 
-Провайдеры реализуют следующий контракт:
+Providers implement this contract:
 
 ```python
 class Translator:
@@ -62,52 +62,53 @@ class Translator:
     ) -> str: ...
 ```
 
-## Поведение мониторов и масштабирования
+## Monitor and scaling behavior
 
-Для выбора используются отдельные прозрачные окна Qt для каждого монитора. Выделенная область выражается в логических координатах соответствующего монитора и перед захватом через MSS преобразуется с использованием коэффициента плотности пикселей устройства. Такой подход корректно обрабатывает вторичные мониторы, отрицательные координаты начала экрана и различные коэффициенты масштабирования, не предполагая, что основной монитор начинается в точке `(0, 0)`.
+Selection uses one transparent Qt window per monitor. A selection is expressed in that monitor's logical coordinates and converted using its device pixel ratio before MSS capture. This handles secondary monitors, negative origins, and different scale factors without assuming that the primary monitor begins at `(0, 0)`.
 
-MVP намеренно ограничивает одно выделение одним монитором. Переводить можно с любого монитора, но один прямоугольник не может охватывать два монитора. Это позволяет избежать неоднозначности физических координат, когда соседние дисплеи используют разные коэффициенты масштабирования.
+The MVP intentionally constrains one drag to one monitor. You can translate from any monitor, but a single rectangle cannot span two monitors. This avoids ambiguous physical coordinates when adjacent displays use different scale factors.
 
-## Тесты
+## Tests
 
 ```powershell
 $env:QT_QPA_PLATFORM = "offscreen"
 python -m pytest -q
 ```
 
-Автоматический набор тестов покрывает миграцию и сохранение настроек, разбор сочетаний клавиш, размещение оверлея при отрицательных координатах, структурированный вывод OCR, поведение пайплайна, ошибки провайдеров и полный цикл работы окна настроек. Захват экрана и глобальные сочетания клавиш всё ещё требуют настоящего интерактивного сеанса Windows.
+The automated suite covers settings migration and persistence, shortcut parsing, negative-coordinate overlay placement, structured OCR output, pipeline behavior, provider failures, and a settings-window round trip. The screen capture and global-shortcut behaviors still require a real interactive Windows session.
 
-Перед выпуском сборки вручную проверьте:
+Before releasing a build, manually verify:
 
-- захват, когда фокус находится в другом приложении;
-- отмену через `Esc` и отклонение слишком маленьких выделений;
-- основной и вторичные мониторы, включая отрицательные координаты и смешанное масштабирование;
-- обычный текст интерфейса Windows и текст в браузере;
-- ошибки сети, неверного API-ключа и отсутствия текста;
-- сохранение настроек, изменение сочетаний клавиш, приостановку/возобновление работы и выход через трей.
+- capture while another application has focus;
+- cancellation with `Esc` and rejection of tiny selections;
+- primary and secondary monitors, including negative origins and mixed scaling;
+- normal Windows UI text and browser text;
+- network, invalid-key, and no-text errors;
+- settings persistence, shortcut changes, pause/resume, and tray exit.
 
-## Упаковка без консольного окна
+## Package without a console window
 
-Устанавливайте PyInstaller только в окружение сборки, затем соберите OCR-модели:
+Install PyInstaller only in the build environment, then collect the OCR models:
 
 ```powershell
 python -m pip install pyinstaller
 pyinstaller --noconfirm --clean --windowed --name ScreenRegionTranslator --collect-all rapidocr_onnxruntime main.py
 ```
 
-Собранное приложение будет размещено в каталоге `dist\ScreenRegionTranslator`. Результаты сборки, виртуальные окружения, кэши моделей, учётные данные и логи исключаются через `.gitignore`.
+The generated application is placed under `dist\ScreenRegionTranslator`. Build outputs, virtual environments, model caches, credentials, and logs are excluded by `.gitignore`.
 
-## Структура кода
+## Code layout
 
 ```text
 screen_translator/
-├── app.py                 жизненный цикл приложения и координация рабочих потоков
-├── capture.py             физический захват изображения для каждого монитора
-├── config.py              типизированные настройки и атомарное сохранение JSON
-├── hotkeys.py             разбор сочетаний, проверка конфликтов и слушатель горячих клавиш
-├── models.py              модели данных OCR и результатов пайплайна
-├── ocr.py                 переиспользуемый движок RapidOCR
-├── pipeline.py            захват → OCR → перевод
-├── translation/           интерфейс провайдеров и их реализации
-└── ui/                    селектор, настройки, трей и оверлей результата
+├── app.py                 application lifecycle and worker orchestration
+├── capture.py             per-monitor physical capture
+├── config.py              typed settings and atomic JSON persistence
+├── hotkeys.py             shortcut parsing, conflict check, and listener
+├── models.py              OCR and pipeline result data
+├── ocr.py                 reusable RapidOCR engine
+├── pipeline.py            capture → OCR → translation
+├── translation/           provider interface and implementations
+└── ui/                    selector, settings, tray, and result overlay
 ```
+
